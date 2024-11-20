@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Storage;
 
 class HelloWorldController extends Controller
@@ -16,10 +17,14 @@ class HelloWorldController extends Controller
      * - mensaje: Un mensaje indicando el resultado de la operación.
      * - contenido: Un array con los nombres de los ficheros.
      */
-    public function index()
-    {
-        //todo
-    }
+    public function index(): JsonResponse
+	{
+        $files = Storage::disk('local')->files();
+        return response()->json([
+            'mensaje' => 'Listado de ficheros',
+            'contenido' => $files,
+        ]);
+	}
 
      /**
      * Recibe por parámetro el nombre de fichero y el contenido. Devuelve un JSON con el resultado de la operación.
@@ -34,7 +39,16 @@ class HelloWorldController extends Controller
      */
     public function store(Request $request)
     {
-        //todo
+        $filename = $request->input('filename');
+        $content = $request->input('content');
+
+    if (Storage::disk('local')->exists($filename)) {
+        return response()->json(['mensaje' => 'El archivo ya existe'], 409);
+    }
+
+    Storage::disk('local')->put($filename, $content);
+
+    return response()->json(['mensaje' => 'Guardado con éxito'], 200);
     }
 
      /**
@@ -49,7 +63,18 @@ class HelloWorldController extends Controller
      */
     public function show(string $filename)
     {
-        //todo
+        if (!Storage::disk('local')->exists($filename)) {
+            return response()->json([
+                'mensaje' => 'Archivo no encontrado',
+            ], 404);
+        }
+
+        $content = Storage::disk('local')->get($filename);
+
+        return response()->json([
+            'mensaje' => 'Archivo leído con éxito',
+            'contenido' => $content,
+        ]);
     }
 
     /**
@@ -66,7 +91,21 @@ class HelloWorldController extends Controller
      */
     public function update(Request $request, string $filename)
     {
-        //todo
+        $validated = $request->validate([
+        'content' => 'required|string',
+    ]);
+
+    if (!Storage::disk('local')->exists($filename)) {
+        return response()->json([
+            'mensaje' => 'El archivo no existe',
+        ], 404);
+    }
+
+    Storage::disk('local')->put($filename, $validated['content']);
+
+    return response()->json([
+        'mensaje' => 'Actualizado con éxito',
+    ]);
     }
 
     /**
@@ -81,6 +120,16 @@ class HelloWorldController extends Controller
      */
     public function destroy(string $filename)
     {
-        //todo
+         if (!Storage::disk('local')->exists($filename)) {
+        return response()->json([
+            'mensaje' => 'El archivo no existe',
+        ], 404);
+    }
+
+    Storage::disk('local')->delete($filename);
+
+    return response()->json([
+        'mensaje' => 'Eliminado con éxito',
+    ], 200);
     }
 }
