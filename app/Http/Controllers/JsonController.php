@@ -13,6 +13,7 @@ class JsonController extends Controller
         json_decode($string);
         return (json_last_error() == JSON_ERROR_NONE);
     }
+
     /**
      * Lista todos los ficheros JSON de la carpeta storage/app.
      * Se debe comprobar fichero a fichero si su contenido es un JSON válido.
@@ -26,10 +27,28 @@ class JsonController extends Controller
      */
     public function index()
     {
+        $files = Storage::disk('local')->files();
 
+        $validFiles = [];
+
+        foreach ($files as $file) {
+            if (pathinfo($file, PATHINFO_EXTENSION) === 'json') {
+                $content = Storage::get($file);
+
+                json_decode($content);
+                if (json_last_error() === JSON_ERROR_NONE) {
+                    $validFiles[] = basename($file);
+                }
+            }
+        }
+
+        return response()->json([
+            'mensaje' => 'Operación exitosa',
+            'contenido' => $validFiles,
+        ]);
     }
 
-   /**
+    /**
      * Recibe por parámetro el nombre de fichero y el contenido. Devuelve un JSON con el resultado de la operación.
      * Si el fichero ya existe, devuelve un 409.
      * Si el contenido no es un JSON válido, devuelve un 415.
@@ -43,11 +62,28 @@ class JsonController extends Controller
      */
     public function store(Request $request)
     {
+        $filename = $request->input('filename');
+        $content = $request->input('content');
 
+        if (!$filename || !$content) {
+            return response()->json(['mensaje' => 'Parámetros inválidos'], 422);
+        }
+
+        if (Storage::disk('local')->exists($filename)) {
+            return response()->json(['mensaje' => 'El fichero ya existe'], 409);
+        }
+
+        if (!$this->isValidJson($content)) {
+            return response()->json(['mensaje' => 'Contenido no es un JSON válido'], 415);
+        }
+
+        Storage::put($filename, $content);
+
+        return response()->json(['mensaje' => 'Fichero guardado exitosamente']);
     }
 
- /**
-     * Recibe por parámetro el nombre de fichero y devuelve un JSON con su contenido
+    /**
+     * Recibe por parámetro el nombre de fichero y devuelve un JSON con su contenido.
      *
      * @param name Parámetro con el nombre del fichero.
      * @return JsonResponse La respuesta en formato JSON.
@@ -58,10 +94,19 @@ class JsonController extends Controller
      */
     public function show(string $id)
     {
+        if (!Storage::disk('local')->exists($id)) {
+            return response()->json(['mensaje' => 'El fichero no existe'], 404);
+        }
 
+        $content = Storage::get($id);
+
+        return response()->json([
+            'mensaje' => 'Operación exitosa',
+            'contenido' => json_decode($content, true),
+        ]);
     }
 
-   /**
+    /**
      * Recibe por parámetro el nombre de fichero, el contenido y actualiza el fichero.
      * Devuelve un JSON con el resultado de la operación.
      * Si el fichero no existe devuelve un 404.
@@ -76,10 +121,27 @@ class JsonController extends Controller
      */
     public function update(Request $request, string $id)
     {
- 
+        $filename = $id;
+        $content = $request->input('content');
+
+        if (!$filename || !$content) {
+            return response()->json(['mensaje' => 'Parámetros inválidos'], 422);
+        }
+
+        if (!Storage::disk('local')->exists($filename)) {
+            return response()->json(['mensaje' => 'El fichero no existe'], 404);
+        }
+
+        if (!$this->isValidJson($content)) {
+            return response()->json(['mensaje' => 'Contenido no es un JSON válido'], 415);
+        }
+
+        Storage::put($filename, $content);
+
+        return response()->json(['mensaje' => 'Fichero actualizado exitosamente']);
     }
 
-     /**
+    /**
      * Recibe por parámetro el nombre de ficher y lo elimina.
      * Si el fichero no existe devuelve un 404.
      *
@@ -91,6 +153,16 @@ class JsonController extends Controller
      */
     public function destroy(string $id)
     {
+        if (!$id) {
+            return response()->json(['mensaje' => 'Parámetro inválido'], 422);
+        }
 
+        if (!Storage::disk('local')->exists($id)) {
+            return response()->json(['mensaje' => 'El fichero no existe'], 404);
+        }
+
+        Storage::disk('local')->delete($id);
+
+        return response()->json(['mensaje' => 'Fichero eliminado exitosamente']);
     }
 }
