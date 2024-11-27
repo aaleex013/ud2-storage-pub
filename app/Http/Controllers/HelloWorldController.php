@@ -16,9 +16,13 @@ class HelloWorldController extends Controller
      * - mensaje: Un mensaje indicando el resultado de la operación.
      * - contenido: Un array con los nombres de los ficheros.
      */
-    public function index()
+    public function index(): JsonResponse
     {
-        //todo
+	$files = Storage::disk('public')->files();
+	return response()->json([
+		'mensaje'=> 'Listado de ficheros',
+		'contenido' => $files,
+	], 200);
     }
 
      /**
